@@ -6,6 +6,8 @@ from Cryptodome.Hash import SHA256
 from Cryptodome.PublicKey import RSA
 from Cryptodome.Signature import pkcs1_15
 
+from utxo import UTXOPool
+
 alice_key: RSA.RsaKey = RSA.generate(1024)
 pubkey = alice_key.public_key().export_key()
 private_key = alice_key.export_key()
@@ -33,4 +35,4 @@ for i in range(t.numInputs()):
 
 bHandler.processTx(t)
 bHandler.createBlock(bob_key)
-
+blockchain.states

@@ -40,6 +40,7 @@ class UTXO:
 
 
 class UTXOPool:
+
     def __init__(self):
         self._map = dict()
 

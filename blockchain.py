@@ -1,3 +1,4 @@
+import copy
 from typing import Dict, List
 from block import Block
 from transaction import Transaction
@@ -9,6 +10,19 @@ from utxo import UTXO, UTXOPool
 # Block Chain should maintain only limited block nodes to satisfy the functions
 # You should not have all the blocks added to the block chain in memory
 # as it would cause a memory overflow.
+class State:
+    def __init__(self, block: Block, utxoPool: UTXOPool) -> None:
+        self._block = block
+        self._utxoPool = copy.copy(utxoPool)
+
+    def getUTXOPool(self):
+        return copy.copy(self._utxoPool)
+
+    def getBlock(self):
+        return self._block
+
+    def __str__(self) -> str:
+        return self._block.getTransactions()
 
 
 class BlockChain:
@@ -22,30 +36,30 @@ class BlockChain:
     def __init__(self, genesisBlock: Block):
         self.transPool: TransactionPool = TransactionPool()
 
-        self.maxUtxoPool: UTXOPool = UTXOPool()
+        utxoPool: UTXOPool = UTXOPool()
         for i in range(genesisBlock.getCoinbase.numOutputs()):
-            self.maxUtxoPool.addUTXO(UTXO(genesisBlock.getCoinbase.hash, i),
-                                     genesisBlock.getCoinbase.getOutput(i))
+            utxoPool.addUTXO(UTXO(genesisBlock.getCoinbase.hash, i),
+                             genesisBlock.getCoinbase.getOutput(i))
         for trans in genesisBlock.getTransactions:
             if trans:
                 for i in range(trans.numOutputs):
                     ouput = Transaction.getOutput(trans, i)
                     utxo = UTXO(trans.hash, i)
-                    self.maxUtxoPool.addUTXO(utxo, ouput)
+                    utxoPool.addUTXO(utxo, ouput)
 
-        self.blocks: List[List[Block]] = list()
+        self.states: List[List[State]] = list()
 
-        self.blocks.append([genesisBlock])
+        self.states.append([State(genesisBlock, utxoPool)])
         # IMPLEMENT THIS
         return
 
     def getMaxHeightBlock(self):
-        return self.blocks[len(self.blocks) - 1][0]
+        return self.states[len(self.states) - 1][0].getBlock()
         # IMPLEMENT THIS
 
     def getMaxHeightUTXOPool(self):
         # IMPLEMENT THIS
-        return self.maxUtxoPool
+        return self.states[len(self.states) - 1][0].getUTXOPool()
 
     def getTransactionPool(self):
         # IMPLEMENT THIS
@@ -55,22 +69,23 @@ class BlockChain:
         if not blk.getPrevBlockHash:
             return False
         isAdded = False
-        for height in range(len(self.blocks)):
-            for iBlock in range(len(self.blocks[height])):
-                if blk.getPrevBlockHash == self.blocks[height][iBlock].getHash:
-                    if height + 1 == len(self.blocks):
-                        self.blocks.append([blk])
-                        txtHandler = TxHandler(self.maxUtxoPool)
-                        txtHandler.handleTxs(blk.getTransactions)
-                        self.maxUtxoPool = txtHandler.getUTXOPool()
-                        for i in range(blk.getCoinbase.numOutputs()):
-                            self.maxUtxoPool.addUTXO(UTXO(blk.getCoinbase.hash, i),
-                                                     blk.getCoinbase.getOutput(i))
+        for height in range(len(self.states)):
+            for iState in range(len(self.states[height])):
+                if blk.getPrevBlockHash == self.states[height][iState].getBlock().getHash:
+                    if height + 1 == len(self.states):
+                        utxoPool = self.states[height][iState].getUTXOPool()
+                        txtHandler = TxHandler(utxoPool)
 
-                        if len(self.blocks) == self.CUT_OFF_AGE:
-                            self.blocks.pop(0)
+                        txtHandler.handleTxs(blk.getTransactions)
+                        utxoPool = txtHandler.getUTXOPool()
+                        for i in range(blk.getCoinbase.numOutputs()):
+                            utxoPool.addUTXO(UTXO(blk.getCoinbase.hash, i),
+                                             blk.getCoinbase.getOutput(i))
+                        self.states.append([State(blk, utxoPool)])
+                        if len(self.states) == self.CUT_OFF_AGE:
+                            self.states.pop(0)
                     else:
-                        self.blocks[height].append(blk)
+                        self.states[height].append(State(blk, utxoPool))
                     isAdded = True
         # IMPLEMENT THIS
         if isAdded:
